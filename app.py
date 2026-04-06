@@ -6,13 +6,14 @@ import os
 
 # --- CONFIGURAÇÕES DE CONEXÃO (NUVEM SUPABASE - MODO POOLER) ---
 # 1. Substitua [SUA-SENHA] pela senha do Banco de Dados. 
-# Note que o usuário agora é 'postgres.yvakbrkllvavtnzywkor' para não dar erro de Tenant.
-DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+# O usuário PRECISA ser 'postgres.yvakbrkllvavtnzywkor' para o Pooler te encontrar.
+DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[SUA-SENHA]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
 
 # 2. Senha para o pessoal da oficina acessar o site
-SENHA_ACESSO = "sv2026" 
+SENHA_ACESSO = "MUDAR_AQUI" 
 
 def criar_engine_sql():
+    # Timeout de 10 segundos para estabilidade
     return create_engine(DB_URL, connect_args={"connect_timeout": 10})
 
 def conectar_banco():
@@ -46,6 +47,7 @@ if not st.session_state["autenticado"]:
 
 # --- LOGOTIPO LATERAL ---
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
+# Usando o nome do arquivo que apareceu no seu print do Codespaces
 caminho_logo = os.path.join(diretorio_atual, 'logo.png.png')
 if os.path.exists(caminho_logo):
     st.sidebar.image(caminho_logo, use_container_width=True)
@@ -140,7 +142,7 @@ with aba2:
             st.dataframe(df_hist, use_container_width=True)
             conn.close()
         except:
-            st.warning("Ainda não há dados registrados ou erro de conexão.")
+            st.warning("Ainda não há dados registrados ou o banco está inacessível.")
 
 # --- ABA 3: CONFIGURAÇÕES E CARGA ---
 with aba3:
@@ -156,7 +158,7 @@ with aba3:
                 df_import.columns = ['numero_frota', 'tipo_bem', 'descricao', 'setor_padrao']
                 df_import['numero_frota'] = df_import['numero_frota'].astype(str).str.strip()
                 
-                st.write("✅ Arquivo lido com sucesso!")
+                st.write("✅ Arquivo lido! Verifique a prévia:")
                 st.dataframe(df_import.head(5))
 
                 if st.button("🚀 EXECUTAR CARGA PARA O SUPABASE"):

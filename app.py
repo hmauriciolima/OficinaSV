@@ -7,21 +7,20 @@ import urllib.parse
 
 # --- CONFIGURAÇÕES DE CONEXÃO (DADOS FORNECIDOS) ---
 
-# 1. Sua senha do banco
+# 1. Senha do Banco (VerginiaAgro2026)
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. Seu ID de projeto (Sufixo do usuário)
+# 2. ID do seu Projeto (yvakbrkllvavtnzywkor)
 PROJECT_ID = "yvakbrkllvavtnzywkor"
 
 # 3. Senha de acesso ao site
 SENHA_ACESSO = "sv2026"
 
-# --- MONTAGEM DA CONEXÃO BLINDADA ---
-# Esta configuração usa o parâmetro 'options' para garantir que o Tenant seja encontrado
+# --- MONTAGEM DA CONEXÃO (COM IDENTIFICADOR DE PROJETO) ---
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
 USUARIO = f"postgres.{PROJECT_ID}"
 
-# Usamos a porta 5432 do Pooler com o parâmetro de identificação do projeto
+# A mágica está no final: &options=project%3D... força o Supabase a te achar
 DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require&options=project%3D{PROJECT_ID}"
 
 def criar_engine_sql():

@@ -4,15 +4,17 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import os
 
-# --- CONFIGURAÇÕES DE CONEXÃO ---
-# IMPORTANTE: O usuário agora é 'postgres.yvakbrkllvavtnzywkor'
-DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+# --- CONFIGURAÇÕES DE CONEXÃO (VOLTANDO PARA O MODO DIRETO) ---
+# 1. Substitua [SUA-SENHA] pela senha do Banco.
+# Note que voltamos para o endereço 'db.yvakbrkllvavtnzywkor.supabase.co'
+DB_URL = "postgresql://postgres:[calecatusmay]@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
 
-# Senha para entrar no site
+# 2. Senha de acesso ao site
 SENHA_ACESSO = "sv2026" 
 
 def criar_engine_sql():
-    return create_engine(DB_URL, connect_args={"connect_timeout": 10})
+    # Usamos o pool_pre_ping para ele testar a conexão antes de falhar
+    return create_engine(DB_URL, pool_pre_ping=True)
 
 def conectar_banco():
     return psycopg2.connect(DB_URL)
@@ -39,7 +41,6 @@ diretorio_atual = os.path.dirname(os.path.abspath(__file__))
 caminho_logo = os.path.join(diretorio_atual, 'logo.png.png')
 if os.path.exists(caminho_logo):
     st.sidebar.image(caminho_logo, use_container_width=True)
-
 st.sidebar.write("**📍 Bataguassu - MS**")
 
 # --- ABAS ---
@@ -67,7 +68,7 @@ with aba1:
             horimetro = st.number_input("Horímetro", step=0.1)
             tipo = st.selectbox("Tipo", ["OFICINA", "PREVENTIVA", "LUBRIFICAÇÃO"])
         
-        servico = st.text_area("Descrição do Serviço")
+        servico = st.text_area("Descrição")
         if st.form_submit_button("✅ SALVAR"):
             try:
                 conn = conectar_banco()
@@ -77,7 +78,6 @@ with aba1:
                 conn.commit()
                 conn.close()
                 st.success("Salvo com sucesso!")
-                st.balloons()
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
@@ -85,15 +85,15 @@ with aba2:
     if st.button("🔄 Atualizar Histórico"):
         try:
             conn = conectar_banco()
-            df = pd.read_sql("SELECT data_reg as Data, frota_id as Frota, mecanico_resp as Mecânico, tipo_os as Tipo, descricao_servico as Serviço FROM fato_os ORDER BY data_reg DESC", conn)
+            df = pd.read_sql("SELECT * FROM fato_os ORDER BY data_reg DESC", conn)
             st.dataframe(df, use_container_width=True)
             conn.close()
         except:
-            st.info("Ainda não há dados.")
+            st.info("Sem dados.")
 
 with aba3:
     st.subheader("📦 Importar Frota")
-    arquivo = st.file_uploader("Arquivo CSV ou TXT", type=['csv', 'txt'])
+    arquivo = st.file_uploader("Arquivo CSV", type=['csv', 'txt'])
     if arquivo:
         try:
             df_import = pd.read_csv(arquivo, sep=None, engine='python', encoding='latin1')
@@ -107,9 +107,8 @@ with aba3:
                         conn.execute(text("CREATE TABLE IF NOT EXISTS dim_frota (numero_frota TEXT PRIMARY KEY, tipo_bem TEXT, descricao TEXT, setor_padrao TEXT)"))
                         conn.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
                         df_import.to_sql('dim_frota', conn, if_exists='append', index=False)
-                    st.success("Frota carregada com sucesso!")
-                    st.balloons()
+                    st.success("Frota carregada!")
             else:
-                st.error("O arquivo precisa de pelo menos 4 colunas.")
+                st.error("O arquivo precisa de 4 colunas.")
         except Exception as e:
-            st.error(f"Erro no processamento: {e}")
+            st.error(f"Erro: {e}")

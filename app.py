@@ -7,10 +7,10 @@ import os
 # --- CONFIGURAÇÕES DE CONEXÃO (NUVEM SUPABASE - MODO POOLER) ---
 # 1. Substitua [SUA-SENHA] pela senha do Banco de Dados. 
 # O usuário PRECISA ser 'postgres.yvakbrkllvavtnzywkor' para o Pooler te encontrar.
-DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[SUA-SENHA]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
+DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
 
 # 2. Senha para o pessoal da oficina acessar o site
-SENHA_ACESSO = "MUDAR_AQUI" 
+SENHA_ACESSO = "sv2026" 
 
 def criar_engine_sql():
     # Timeout de 10 segundos para estabilidade

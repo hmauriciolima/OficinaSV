@@ -4,11 +4,14 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 from PIL import Image
 import os
+import io
 
 # --- CONFIGURAÇÕES DE CONEXÃO (NUVEM SUPABASE) ---
-# Substitua [YOUR-PASSWORD] pela sua senha do Supabase
+# 1. Substitua [calecatusmay] pela senha do seu Banco de Dados no Supabase
 DB_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
-SENHA_ACESSO = "calecatusmay" # <--- Defina a senha para abrir o sistema
+
+# 2. Defina a senha para o pessoal da oficina acessar o site
+SENHA_ACESSO = "sv2026" 
 
 def criar_engine_sql():
     return create_engine(DB_URL)
@@ -19,7 +22,7 @@ def conectar_banco():
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Oficina SV", layout="wide", page_icon="🔧")
 
-# --- TELA DE LOGIN SIMPLES ---
+# --- TELA DE LOGIN ---
 if "autenticado" not in st.session_state:
     st.session_state["autenticado"] = False
 
@@ -34,7 +37,7 @@ if not st.session_state["autenticado"]:
             st.error("Senha incorreta!")
     st.stop()
 
-# --- LAYOUT E ESTILO ---
+# --- ESTILO VISUAL ---
 st.markdown("""
     <style>
     .main { background-color: #f5f7f9; }
@@ -43,12 +46,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# --- LOGO (SISTEMA HÍBRIDO) ---
+# --- LOGOTIPO LATERAL ---
 if 'logo_img' not in st.session_state:
     st.session_state['logo_img'] = None
 
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
-for f in ['logo.jpg', 'logo.png', 'logo.jpeg']:
+for f in ['logo.jpg', 'logo.png', 'logo.jpeg', 'logo.jpg.jpg']:
     caminho = os.path.join(diretorio_atual, f)
     if os.path.exists(caminho):
         st.session_state['logo_img'] = caminho
@@ -67,7 +70,7 @@ if st.sidebar.button("Sair/Logoff"):
 
 st.title("📋 Controle de Ordem de Serviço - Oficina SV")
 
-# --- FUNÇÕES ---
+# --- FUNÇÕES DE DADOS ---
 def listar_frotas():
     try:
         conn = conectar_banco()
@@ -79,13 +82,13 @@ def listar_frotas():
 
 aba1, aba2, aba3 = st.tabs(["🛠️ Nova O.S.", "📈 Histórico", "⚙️ Configurações"])
 
-# --- ABA 1: LANÇAMENTO ---
+# --- ABA 1: LANÇAMENTO DE O.S. ---
 with aba1:
     st.subheader("📝 Registro de Manutenção")
     lista_frotas = listar_frotas()
     
     if not lista_frotas:
-        st.info("💡 Se as tabelas ainda não existirem no Supabase, vá em Configurações e importe a frota.")
+        st.warning("⚠️ Nenhuma frota cadastrada. Vá em 'Configurações' e importe o arquivo da frota.")
     
     with st.form("form_os", clear_on_submit=True):
         c1, c2, c3 = st.columns(3)
@@ -106,7 +109,6 @@ with aba1:
             try:
                 conn = conectar_banco()
                 cur = conn.cursor()
-                # Criar tabela fato se não existir no Supabase
                 cur.execute("""
                     CREATE TABLE IF NOT EXISTS fato_os (
                         id SERIAL PRIMARY KEY,
@@ -146,48 +148,64 @@ with aba2:
                 LEFT JOIN dim_frota d ON f.frota_id = d.numero_frota
                 ORDER BY f.data_reg DESC
             """
-            df = pd.read_sql(query, conn)
-            st.dataframe(df, use_container_width=True)
+            df_hist = pd.read_sql(query, conn)
+            st.dataframe(df_hist, use_container_width=True)
             conn.close()
         except:
-            st.warning("Ainda não há dados registrados ou as tabelas estão sendo criadas.")
+            st.warning("Ainda não há dados registrados.")
 
-# --- ABA 3: CONFIGURAÇÕES ---
+# --- ABA 3: CONFIGURAÇÕES E CARGA ---
 with aba3:
     st.subheader("🖼️ Logotipo")
-    logo_file = st.file_uploader("Suba o logo se ele não aparecer", type=['jpg', 'png', 'jpeg'])
+    logo_file = st.file_uploader("Trocar Logo", type=['jpg', 'png', 'jpeg'])
     if logo_file:
         st.session_state['logo_img'] = logo_file
         st.rerun()
 
     st.markdown("---")
     st.subheader("📦 Importação de Frota")
-    arquivo = st.file_uploader("Arquivo da Frota (TXT/CSV)", type=['txt', 'csv'])
+    arquivo = st.file_uploader("Selecione o arquivo da Frota (TXT ou CSV)", type=['txt', 'csv'])
     
     if arquivo:
-        conteudo = arquivo.getvalue().decode("utf-8")
-        sep_identificado = ';' if ';' in conteudo else r'\s{2,}'
-        arquivo.seek(0)
-        df_import = pd.read_csv(arquivo, sep=sep_identificado, engine='python', 
-                                names=['numero_frota', 'tipo_bem', 'descricao', 'setor_padrao'], skiprows=1)
-        df_import['numero_frota'] = df_import['numero_frota'].astype(str).str.replace('.', '', regex=False).str.split(',').str[0]
-        df_import = df_import.drop_duplicates(subset=['numero_frota'])
-        
-        if st.button("🚀 EXECUTAR CARGA PARA O SUPABASE"):
-            try:
-                engine = criar_engine_sql()
-                with engine.begin() as conn:
-                    # Cria a tabela dim_frota no Supabase se não existir
-                    conn.execute(text("""
-                        CREATE TABLE IF NOT EXISTS dim_frota (
-                            numero_frota TEXT PRIMARY KEY,
-                            tipo_bem TEXT,
-                            descricao TEXT,
-                            setor_padrao TEXT
-                        )
-                    """))
-                    conn.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
-                    df_import.to_sql('dim_frota', conn, if_exists='append', index=False)
-                st.success("Frota carregada na nuvem!")
-            except Exception as e:
-                st.error(f"Erro: {e}")
+        try:
+            # Tentativa de leitura automática (detecta separador e acentos)
+            df_import = pd.read_csv(arquivo, sep=None, engine='python', encoding='latin1')
+            
+            # Força o nome das colunas se o arquivo tiver 4 ou mais colunas
+            if len(df_import.columns) >= 4:
+                # Pegamos apenas as 4 primeiras colunas e renomeamos
+                df_import = df_import.iloc[:, :4]
+                df_import.columns = ['numero_frota', 'tipo_bem', 'descricao', 'setor_padrao']
+                
+                # Limpeza básica do número da frota
+                df_import['numero_frota'] = df_import['numero_frota'].astype(str).str.strip()
+                
+                st.write("✅ Arquivo pronto para carga!")
+                st.dataframe(df_import.head(5)) # Mostra as 5 primeiras linhas para conferir
+
+                # O BOTÃO APARECE AQUI SE O ARQUIVO FOR LIDO COM SUCESSO
+                if st.button("🚀 EXECUTAR CARGA PARA O SUPABASE"):
+                    try:
+                        engine = criar_engine_sql()
+                        with engine.begin() as conn_engine:
+                            # Garante que a tabela existe
+                            conn_engine.execute(text("""
+                                CREATE TABLE IF NOT EXISTS dim_frota (
+                                    numero_frota TEXT PRIMARY KEY,
+                                    tipo_bem TEXT,
+                                    descricao TEXT,
+                                    setor_padrao TEXT
+                                )
+                            """))
+                            # Limpa a tabela antiga e insere a nova
+                            conn_engine.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
+                            df_import.to_sql('dim_frota', conn_engine, if_exists='append', index=False)
+                        st.success("Frota carregada com sucesso!")
+                        st.balloons()
+                        st.info("Agora vá na aba 'Nova O.S.' para ver os equipamentos.")
+                    except Exception as e:
+                        st.error(f"Erro ao salvar no banco: {e}")
+            else:
+                st.error("O arquivo precisa ter pelo menos 4 colunas (Frota, Tipo, Descrição, Setor).")
+        except Exception as e:
+            st.error(f"Erro ao processar arquivo: {e}")

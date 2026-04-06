@@ -3,15 +3,21 @@ import psycopg2
 import pandas as pd
 from sqlalchemy import create_engine, text
 import os
+import urllib.parse
 
-# --- CONFIGURAÇÕES DE CONEXÃO (MODO SUPABASE SUPREME) ---
-# 1. Usuário: postgres.yvakbrkllvavtnzywkor
-# 2. Endereço: aws-0-sa-east-1.pooler.supabase.com
-# 3. PORTA: 6543 (Isso resolve o erro de 'Requested Address')
-DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
+# --- CONFIGURAÇÕES DE CONEXÃO ---
+# 1. Coloque APENAS a sua senha entre as aspas abaixo
+SENHA_BANCO = "calecatusmay"
 
-# Senha de acesso ao site
+# 2. O usuário padrão do seu projeto (NÃO MUDE O TEXTO ABAIXO)
+USUARIO = "postgres.yvakbrkllvavtnzywkor"
+
+# 3. Senha para entrar no site da Oficina
 SENHA_ACESSO = "sv2026" 
+
+# --- MONTAGEM SEGURA DO LINK (Evita erro de caracteres especiais) ---
+senha_codificada = urllib.parse.quote_plus(SENHA_BANCO)
+DB_URL = f"postgresql://{USUARIO}:{senha_codificada}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)

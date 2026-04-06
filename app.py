@@ -2,25 +2,32 @@ import streamlit as st
 import psycopg2
 import pandas as pd
 from sqlalchemy import create_engine, text
-from PIL import Image
 import os
-import io
 
 # --- CONFIGURAÇÕES DE CONEXÃO (NUVEM SUPABASE) ---
-# 1. Substitua [calecatusmay] pela senha do seu Banco de Dados no Supabase
-DB_URL = "postgresql://postgres:[YOUR-PASSWORD]@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
+# 1. Substitua [SUA-SENHA] pela senha do Banco de Dados que você criou no início
+DB_URL = "postgresql://postgres:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
 
 # 2. Defina a senha para o pessoal da oficina acessar o site
 SENHA_ACESSO = "sv2026" 
 
 def criar_engine_sql():
-    return create_engine(DB_URL)
+    # Adicionamos o timeout de 10 segundos para evitar o erro de conexão
+    return create_engine(DB_URL, connect_args={"connect_timeout": 10})
 
 def conectar_banco():
     return psycopg2.connect(DB_URL)
 
 # --- CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="Oficina SV", layout="wide", page_icon="🔧")
+
+# --- ESTILO VISUAL ---
+st.markdown("""
+    <style>
+    .main { background-color: #f5f7f9; }
+    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007bff; color: white; font-weight: bold; }
+    </style>
+    """, unsafe_allow_html=True)
 
 # --- TELA DE LOGIN ---
 if "autenticado" not in st.session_state:
@@ -37,30 +44,11 @@ if not st.session_state["autenticado"]:
             st.error("Senha incorreta!")
     st.stop()
 
-# --- ESTILO VISUAL ---
-st.markdown("""
-    <style>
-    .main { background-color: #f5f7f9; }
-    .stButton>button { width: 100%; border-radius: 5px; height: 3em; background-color: #007bff; color: white; font-weight: bold; }
-    [data-testid="stSidebar"] { text-align: center; background-color: #f0f2f6; }
-    </style>
-    """, unsafe_allow_html=True)
-
 # --- LOGOTIPO LATERAL ---
-if 'logo_img' not in st.session_state:
-    st.session_state['logo_img'] = None
-
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
-for f in ['logo.jpg', 'logo.png', 'logo.jpeg', 'logo.jpg.jpg']:
-    caminho = os.path.join(diretorio_atual, f)
-    if os.path.exists(caminho):
-        st.session_state['logo_img'] = caminho
-        break
-
-if st.session_state['logo_img']:
-    st.sidebar.image(st.session_state['logo_img'], use_container_width=True)
-else:
-    st.sidebar.header("🏢 Oficina SV")
+caminho_logo = os.path.join(diretorio_atual, 'logo.png.png') # Nome conforme seu print do GitHub
+if os.path.exists(caminho_logo):
+    st.sidebar.image(caminho_logo, use_container_width=True)
 
 st.sidebar.markdown("---")
 st.sidebar.write("**📍 Bataguassu - MS**")
@@ -152,43 +140,29 @@ with aba2:
             st.dataframe(df_hist, use_container_width=True)
             conn.close()
         except:
-            st.warning("Ainda não há dados registrados.")
+            st.warning("Ainda não há dados registrados ou o banco está vazio.")
 
 # --- ABA 3: CONFIGURAÇÕES E CARGA ---
 with aba3:
-    st.subheader("🖼️ Logotipo")
-    logo_file = st.file_uploader("Trocar Logo", type=['jpg', 'png', 'jpeg'])
-    if logo_file:
-        st.session_state['logo_img'] = logo_file
-        st.rerun()
-
-    st.markdown("---")
     st.subheader("📦 Importação de Frota")
     arquivo = st.file_uploader("Selecione o arquivo da Frota (TXT ou CSV)", type=['txt', 'csv'])
     
     if arquivo:
         try:
-            # Tentativa de leitura automática (detecta separador e acentos)
             df_import = pd.read_csv(arquivo, sep=None, engine='python', encoding='latin1')
             
-            # Força o nome das colunas se o arquivo tiver 4 ou mais colunas
             if len(df_import.columns) >= 4:
-                # Pegamos apenas as 4 primeiras colunas e renomeamos
                 df_import = df_import.iloc[:, :4]
                 df_import.columns = ['numero_frota', 'tipo_bem', 'descricao', 'setor_padrao']
-                
-                # Limpeza básica do número da frota
                 df_import['numero_frota'] = df_import['numero_frota'].astype(str).str.strip()
                 
-                st.write("✅ Arquivo pronto para carga!")
-                st.dataframe(df_import.head(5)) # Mostra as 5 primeiras linhas para conferir
+                st.write("✅ Arquivo lido! Verifique os dados abaixo:")
+                st.dataframe(df_import.head(5))
 
-                # O BOTÃO APARECE AQUI SE O ARQUIVO FOR LIDO COM SUCESSO
                 if st.button("🚀 EXECUTAR CARGA PARA O SUPABASE"):
                     try:
                         engine = criar_engine_sql()
                         with engine.begin() as conn_engine:
-                            # Garante que a tabela existe
                             conn_engine.execute(text("""
                                 CREATE TABLE IF NOT EXISTS dim_frota (
                                     numero_frota TEXT PRIMARY KEY,
@@ -197,15 +171,13 @@ with aba3:
                                     setor_padrao TEXT
                                 )
                             """))
-                            # Limpa a tabela antiga e insere a nova
                             conn_engine.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
                             df_import.to_sql('dim_frota', conn_engine, if_exists='append', index=False)
                         st.success("Frota carregada com sucesso!")
                         st.balloons()
-                        st.info("Agora vá na aba 'Nova O.S.' para ver os equipamentos.")
                     except Exception as e:
                         st.error(f"Erro ao salvar no banco: {e}")
             else:
-                st.error("O arquivo precisa ter pelo menos 4 colunas (Frota, Tipo, Descrição, Setor).")
+                st.error("O arquivo precisa ter pelo menos 4 colunas.")
         except Exception as e:
             st.error(f"Erro ao processar arquivo: {e}")

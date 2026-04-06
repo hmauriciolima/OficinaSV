@@ -4,11 +4,11 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import os
 
-# --- CONFIGURAÇÕES DE CONEXÃO (MODO POOLER OBRIGATÓRIO) ---
-# 1. USUÁRIO CORRIGIDO: postgres.yvakbrkllvavtnzywkor
+# --- CONFIGURAÇÕES DE CONEXÃO ---
+# IMPORTANTE: O usuário agora é 'postgres.yvakbrkllvavtnzywkor'
 DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:5432/postgres"
 
-# 2. Senha de acesso ao site
+# Senha para entrar no site
 SENHA_ACESSO = "sv2026" 
 
 def criar_engine_sql():
@@ -49,13 +49,14 @@ with aba1:
     st.subheader("📝 Registro de Manutenção")
     try:
         conn = conectar_banco()
-        lista_frotas = pd.read_sql("SELECT numero_frota FROM dim_frota ORDER BY numero_frota", conn)['numero_frota'].tolist()
+        df_frota = pd.read_sql("SELECT numero_frota FROM dim_frota ORDER BY numero_frota", conn)
+        lista_frotas = df_frota['numero_frota'].tolist()
         conn.close()
     except:
         lista_frotas = []
     
     if not lista_frotas:
-        st.warning("⚠️ Frota vazia. Vá em Configurações.")
+        st.warning("⚠️ Nenhuma frota carregada. Vá em Configurações.")
 
     with st.form("form_os", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -66,7 +67,7 @@ with aba1:
             horimetro = st.number_input("Horímetro", step=0.1)
             tipo = st.selectbox("Tipo", ["OFICINA", "PREVENTIVA", "LUBRIFICAÇÃO"])
         
-        servico = st.text_area("Descrição")
+        servico = st.text_area("Descrição do Serviço")
         if st.form_submit_button("✅ SALVAR"):
             try:
                 conn = conectar_banco()
@@ -76,6 +77,7 @@ with aba1:
                 conn.commit()
                 conn.close()
                 st.success("Salvo com sucesso!")
+                st.balloons()
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
@@ -83,15 +85,15 @@ with aba2:
     if st.button("🔄 Atualizar Histórico"):
         try:
             conn = conectar_banco()
-            df = pd.read_sql("SELECT * FROM fato_os ORDER BY data_reg DESC", conn)
+            df = pd.read_sql("SELECT data_reg as Data, frota_id as Frota, mecanico_resp as Mecânico, tipo_os as Tipo, descricao_servico as Serviço FROM fato_os ORDER BY data_reg DESC", conn)
             st.dataframe(df, use_container_width=True)
             conn.close()
         except:
-            st.info("Sem dados.")
+            st.info("Ainda não há dados.")
 
 with aba3:
     st.subheader("📦 Importar Frota")
-    arquivo = st.file_uploader("Arquivo CSV", type=['csv', 'txt'])
+    arquivo = st.file_uploader("Arquivo CSV ou TXT", type=['csv', 'txt'])
     if arquivo:
         try:
             df_import = pd.read_csv(arquivo, sep=None, engine='python', encoding='latin1')
@@ -105,8 +107,9 @@ with aba3:
                         conn.execute(text("CREATE TABLE IF NOT EXISTS dim_frota (numero_frota TEXT PRIMARY KEY, tipo_bem TEXT, descricao TEXT, setor_padrao TEXT)"))
                         conn.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
                         df_import.to_sql('dim_frota', conn, if_exists='append', index=False)
-                    st.success("Frota carregada!")
+                    st.success("Frota carregada com sucesso!")
+                    st.balloons()
             else:
-                st.error("O arquivo precisa de 4 colunas.")
+                st.error("O arquivo precisa de pelo menos 4 colunas.")
         except Exception as e:
-            st.error(f"Erro: {e}")
+            st.error(f"Erro no processamento: {e}")

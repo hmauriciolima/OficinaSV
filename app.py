@@ -5,23 +5,24 @@ from sqlalchemy import create_engine, text
 import os
 import urllib.parse
 
-# --- CONFIGURAÇÕES DE CONEXÃO ---
+# --- CONFIGURAÇÕES DE CONEXÃO (DADOS FORNECIDOS) ---
 
-# 1. Sua senha confirmada
+# 1. Sua senha do banco
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. O USUÁRIO COM O PONTO (O segredo está aqui)
-USUARIO = "postgres.yvakbrkllvavtnzywkor"
+# 2. Seu ID de projeto (Sufixo do usuário)
+PROJECT_ID = "yvakbrkllvavtnzywkor"
 
-# 3. Senha do Site
+# 3. Senha de acesso ao site
 SENHA_ACESSO = "sv2026"
 
-# --- MONTAGEM DA CONEXÃO VIA POOLER (PORTA 5432) ---
-# Usamos o quote_plus para garantir que o ponto e a senha não quebrem o link
+# --- MONTAGEM DA CONEXÃO BLINDADA ---
+# Esta configuração usa o parâmetro 'options' para garantir que o Tenant seja encontrado
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
+USUARIO = f"postgres.{PROJECT_ID}"
 
-# Endereço do Pooler na porta 5432 - O mais estável para Streamlit
-DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
+# Usamos a porta 5432 do Pooler com o parâmetro de identificação do projeto
+DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require&options=project%3D{PROJECT_ID}"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)
@@ -91,7 +92,17 @@ with aba1:
             try:
                 conn = conectar_banco()
                 cur = conn.cursor()
-                cur.execute("CREATE TABLE IF NOT EXISTS fato_os (id SERIAL PRIMARY KEY, data_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP, frota_id TEXT, mecanico_resp TEXT, descricao_servico TEXT, horimetro_decimal NUMERIC, tipo_os TEXT)")
+                cur.execute("""
+                    CREATE TABLE IF NOT EXISTS fato_os (
+                        id SERIAL PRIMARY KEY, 
+                        data_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP, 
+                        frota_id TEXT, 
+                        mecanico_resp TEXT, 
+                        descricao_servico TEXT, 
+                        horimetro_decimal NUMERIC, 
+                        tipo_os TEXT
+                    )
+                """)
                 cur.execute("INSERT INTO fato_os (frota_id, mecanico_resp, descricao_servico, horimetro_decimal, tipo_os) VALUES (%s, %s, %s, %s, %s)", (frota_sel, mecanico, servico, horimetro, tipo))
                 conn.commit()
                 conn.close()
@@ -129,7 +140,7 @@ with aba3:
                             conn_engine.execute(text("CREATE TABLE IF NOT EXISTS dim_frota (numero_frota TEXT PRIMARY KEY, tipo_bem TEXT, descricao TEXT, setor_padrao TEXT)"))
                             conn_engine.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
                             df_import.to_sql('dim_frota', conn_engine, if_exists='append', index=False)
-                        st.success("Frota carregada!")
+                        st.success("Frota carregada com sucesso!")
                         st.balloons()
                     except Exception as e:
                         st.error(f"Erro na carga: {e}")

@@ -4,16 +4,16 @@ import pandas as pd
 from sqlalchemy import create_engine, text
 import os
 
-# --- CONFIGURAÇÕES DE CONEXÃO (VOLTANDO PARA O MODO DIRETO) ---
-# 1. Substitua [SUA-SENHA] pela senha do Banco.
-# Note que voltamos para o endereço 'db.yvakbrkllvavtnzywkor.supabase.co'
-DB_URL = "postgresql://postgres:[calecatusmay]@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
+# --- CONFIGURAÇÕES DE CONEXÃO (MODO SUPABASE SUPREME) ---
+# 1. Usuário: postgres.yvakbrkllvavtnzywkor
+# 2. Endereço: aws-0-sa-east-1.pooler.supabase.com
+# 3. PORTA: 6543 (Isso resolve o erro de 'Requested Address')
+DB_URL = "postgresql://postgres.yvakbrkllvavtnzywkor:[calecatusmay]@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
-# 2. Senha de acesso ao site
+# Senha de acesso ao site
 SENHA_ACESSO = "sv2026" 
 
 def criar_engine_sql():
-    # Usamos o pool_pre_ping para ele testar a conexão antes de falhar
     return create_engine(DB_URL, pool_pre_ping=True)
 
 def conectar_banco():

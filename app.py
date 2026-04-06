@@ -7,20 +7,22 @@ import urllib.parse
 
 # --- CONFIGURAÇÕES DE CONEXÃO ---
 
-# 1. Sua senha (VerginiaAgro2026)
+# 1. Sua senha confirmada
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. No modo DIRETO, o usuário é apenas postgres
-USUARIO = "postgres"
+# 2. Seu ID de projeto
+PROJECT_ID = "yvakbrkllvavtnzywkor"
 
 # 3. Senha do Site
 SENHA_ACESSO = "sv2026"
 
-# --- CONEXÃO DIRETA (PULANDO O POOLER) ---
+# --- MONTAGEM DA CONEXÃO (POOLER PORTA 5432) ---
+# Usamos o Pooler porque ele resolve o problema de endereço (IPv6) do Streamlit
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
+USUARIO = f"postgres.{PROJECT_ID}"
 
-# Endereço direto: db.[ID].supabase.co na porta 5432
-DB_URL = f"postgresql://{USUARIO}:{senha_safe}@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
+# Porta 5432 no Pooler é o modo 'Session', o mais compatível com Streamlit
+DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)
@@ -73,7 +75,7 @@ with aba1:
     lista_frotas = listar_frotas()
     
     if not lista_frotas:
-        st.warning("⚠️ Lista de frotas vazia. Vá em 'Configurações'.")
+        st.warning("⚠️ Nenhuma frota cadastrada. Vá em 'Configurações'.")
     
     with st.form("form_os", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -84,7 +86,7 @@ with aba1:
             horimetro = st.number_input("Horímetro", step=0.1)
             tipo = st.selectbox("Tipo", ["OFICINA", "LUBRIFICAÇÃO", "PREVENTIVA", "CAMPO"])
 
-        servico = st.text_area("Serviço Realizado")
+        servico = st.text_area("Descrição do Serviço")
         
         if st.form_submit_button("✅ SALVAR"):
             try:
@@ -94,7 +96,7 @@ with aba1:
                 cur.execute("INSERT INTO fato_os (frota_id, mecanico_resp, descricao_servico, horimetro_decimal, tipo_os) VALUES (%s, %s, %s, %s, %s)", (frota_sel, mecanico, servico, horimetro, tipo))
                 conn.commit()
                 conn.close()
-                st.success("Dados salvos!")
+                st.success("Dados salvos com sucesso!")
                 st.balloons()
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
@@ -107,11 +109,11 @@ with aba2:
             st.dataframe(df_hist, use_container_width=True)
             conn.close()
         except:
-            st.info("Ainda não há registros.")
+            st.info("Ainda não há registros no banco.")
 
 with aba3:
-    st.subheader("⚙️ Carga de Dados")
-    arquivo = st.file_uploader("Subir CSV de Frota", type=['csv', 'txt'])
+    st.subheader("⚙️ Configurações de Dados")
+    arquivo = st.file_uploader("Upload CSV de Frota", type=['csv', 'txt'])
     
     if arquivo:
         try:
@@ -119,6 +121,7 @@ with aba3:
             if len(df_import.columns) >= 4:
                 df_import = df_import.iloc[:, :4]
                 df_import.columns = ['numero_frota', 'tipo_bem', 'descricao', 'setor_padrao']
+                st.write("✅ Arquivo carregado!")
                 st.dataframe(df_import.head())
 
                 if st.button("🚀 EXECUTAR CARGA"):
@@ -128,9 +131,9 @@ with aba3:
                             conn_engine.execute(text("CREATE TABLE IF NOT EXISTS dim_frota (numero_frota TEXT PRIMARY KEY, tipo_bem TEXT, descricao TEXT, setor_padrao TEXT)"))
                             conn_engine.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
                             df_import.to_sql('dim_frota', conn_engine, if_exists='append', index=False)
-                        st.success("Frota atualizada!")
+                        st.success("Frota atualizada com sucesso!")
                         st.balloons()
                     except Exception as e:
-                        st.error(f"Erro na carga: {e}")
+                        st.error(f"Erro na carga do banco: {e}")
         except Exception as e:
-            st.error(f"Erro no arquivo: {e}")
+            st.error(f"Erro ao ler arquivo: {e}")

@@ -5,22 +5,21 @@ from sqlalchemy import create_engine, text
 import os
 import urllib.parse
 
-# --- CONFIGURAÇÕES DE CONEXÃO (DADOS FORNECIDOS) ---
+# --- CONFIGURAÇÕES DE CONEXÃO (AJUSTE DIRETO) ---
 
-# 1. Senha do Banco de Dados Supabase
+# 1. Senha que você definiu (VerginiaAgro2026)
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. Usuário (ID do seu projeto confirmado: yvakbrkllvavtnzywkor)
-USUARIO = "postgres.yvakbrkllvavtnzywkor"
+# 2. Usuário (Apenas 'postgres' - o endereço direto já sabe quem você é)
+USUARIO = "postgres"
 
-# 3. Senha para abrir o site no navegador
+# 3. Senha do Site
 SENHA_ACESSO = "sv2026"
 
-# --- MONTAGEM DA CONEXÃO ---
-# O urllib garante que a senha seja lida corretamente pelo servidor
+# 4. ENDEREÇO DIRETO (db.yvakbrkllvavtnzywkor.supabase.co)
+# Note que mudamos de 'pooler' para o endereço que aparece no topo do seu print
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
-# Usando a porta 5432 no endereço do Pooler conforme configuração do seu painel
-DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
+DB_URL = f"postgresql://{USUARIO}:{senha_safe}@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)
@@ -46,7 +45,7 @@ if not st.session_state["autenticado"]:
             st.error("Senha incorreta!")
     st.stop()
 
-# --- LOGOTIPO E IDENTIFICAÇÃO ---
+# --- BARRA LATERAL ---
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
 caminho_logo = os.path.join(diretorio_atual, 'logo.png.png')
 if os.path.exists(caminho_logo):
@@ -56,7 +55,7 @@ st.sidebar.write("**📍 Bataguassu - MS**")
 
 st.title("📋 Controle de Ordem de Serviço - Oficina SV")
 
-# --- FUNÇÕES DE DADOS ---
+# --- FUNÇÕES ---
 def listar_frotas():
     try:
         conn = conectar_banco()
@@ -68,13 +67,12 @@ def listar_frotas():
 
 aba1, aba2, aba3 = st.tabs(["🛠️ Nova O.S.", "📈 Histórico", "⚙️ Configurações"])
 
-# --- ABA 1: LANÇAMENTO DE O.S. ---
 with aba1:
     st.subheader("📝 Registro de Manutenção")
     lista_frotas = listar_frotas()
     
     if not lista_frotas:
-        st.warning("⚠️ Nenhuma frota cadastrada. Vá em 'Configurações' e importe o arquivo.")
+        st.warning("⚠️ Nenhuma frota cadastrada. Vá em 'Configurações' e carregue a frota.")
     
     with st.form("form_os", clear_on_submit=True):
         c1, c2 = st.columns(2)
@@ -85,27 +83,14 @@ with aba1:
             horimetro = st.number_input("Horímetro", step=0.1)
             tipo = st.selectbox("Tipo", ["OFICINA", "LUBRIFICAÇÃO", "PREVENTIVA", "TERCEIROS"])
 
-        servico = st.text_area("Descrição do Serviço")
+        servico = st.text_area("Descrição")
         
-        if st.form_submit_button("✅ SALVAR NO SISTEMA"):
+        if st.form_submit_button("✅ SALVAR"):
             try:
                 conn = conectar_banco()
                 cur = conn.cursor()
-                cur.execute("""
-                    CREATE TABLE IF NOT EXISTS fato_os (
-                        id SERIAL PRIMARY KEY,
-                        data_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        frota_id TEXT,
-                        mecanico_resp TEXT,
-                        descricao_servico TEXT,
-                        horimetro_decimal NUMERIC,
-                        tipo_os TEXT
-                    )
-                """)
-                cur.execute("""
-                    INSERT INTO fato_os (frota_id, mecanico_resp, descricao_servico, horimetro_decimal, tipo_os)
-                    VALUES (%s, %s, %s, %s, %s)
-                """, (frota_sel, mecanico, servico, horimetro, tipo))
+                cur.execute("CREATE TABLE IF NOT EXISTS fato_os (id SERIAL PRIMARY KEY, data_reg TIMESTAMP DEFAULT CURRENT_TIMESTAMP, frota_id TEXT, mecanico_resp TEXT, descricao_servico TEXT, horimetro_decimal NUMERIC, tipo_os TEXT)")
+                cur.execute("INSERT INTO fato_os (frota_id, mecanico_resp, descricao_servico, horimetro_decimal, tipo_os) VALUES (%s, %s, %s, %s, %s)", (frota_sel, mecanico, servico, horimetro, tipo))
                 conn.commit()
                 conn.close()
                 st.success("Salvo com sucesso!")
@@ -113,7 +98,6 @@ with aba1:
             except Exception as e:
                 st.error(f"Erro ao salvar: {e}")
 
-# --- ABA 2: HISTÓRICO ---
 with aba2:
     if st.button("🔄 Atualizar Relatório"):
         try:
@@ -122,12 +106,11 @@ with aba2:
             st.dataframe(df_hist, use_container_width=True)
             conn.close()
         except:
-            st.info("Ainda não há dados registrados.")
+            st.info("Sem dados registrados.")
 
-# --- ABA 3: IMPORTAÇÃO ---
 with aba3:
     st.subheader("📦 Importação de Frota Master")
-    arquivo = st.file_uploader("Selecione o arquivo da Frota (CSV ou TXT)", type=['txt', 'csv'])
+    arquivo = st.file_uploader("Arquivo CSV ou TXT", type=['txt', 'csv'])
     
     if arquivo:
         try:
@@ -135,24 +118,16 @@ with aba3:
             if len(df_import.columns) >= 4:
                 df_import = df_import.iloc[:, :4]
                 df_import.columns = ['numero_frota', 'tipo_bem', 'descricao', 'setor_padrao']
-                st.write("✅ Arquivo lido!")
                 st.dataframe(df_import.head())
 
-                if st.button("🚀 EXECUTAR CARGA PARA O SUPABASE"):
+                if st.button("🚀 EXECUTAR CARGA"):
                     try:
                         engine = criar_engine_sql()
                         with engine.begin() as conn_engine:
-                            conn_engine.execute(text("""
-                                CREATE TABLE IF NOT EXISTS dim_frota (
-                                    numero_frota TEXT PRIMARY KEY,
-                                    tipo_bem TEXT,
-                                    descricao TEXT,
-                                    setor_padrao TEXT
-                                )
-                            """))
+                            conn_engine.execute(text("CREATE TABLE IF NOT EXISTS dim_frota (numero_frota TEXT PRIMARY KEY, tipo_bem TEXT, descricao TEXT, setor_padrao TEXT)"))
                             conn_engine.execute(text("TRUNCATE TABLE dim_frota CASCADE;"))
                             df_import.to_sql('dim_frota', conn_engine, if_exists='append', index=False)
-                        st.success("Frota carregada com sucesso!")
+                        st.success("Frota carregada!")
                         st.balloons()
                     except Exception as e:
                         st.error(f"Erro na carga: {e}")

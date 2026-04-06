@@ -7,21 +7,22 @@ import urllib.parse
 
 # --- CONFIGURAÇÕES DE CONEXÃO ---
 
-# 1. Sua senha do banco
+# 1. Senha do Banco (VerginiaAgro2026)
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. Usuário padrão (No modo direto é apenas postgres)
-USUARIO = "postgres"
+# 2. Usuário Completo (Obrigatório para o Pooler te encontrar)
+USUARIO = "postgres.yvakbrkllvavtnzywkor"
 
-# 3. Senha de acesso ao site
+# 3. Senha do Site
 SENHA_ACESSO = "sv2026"
 
-# --- ENDEREÇO DIRETO (SEM POOLER) ---
+# --- MONTAGEM DA CONEXÃO (POOLER NA PORTA 5432) ---
+# O urllib garante que caracteres especiais na senha não quebrem o link
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
 
-# ESTE É O ENDEREÇO DIRETO DO SEU BANCO NA PORTA 5432
-# Note que usamos 'db.yvakbrkllvavtnzywkor.supabase.co'
-DB_URL = f"postgresql://{USUARIO}:{senha_safe}@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
+# Usamos o endereço do POOLER na porta 5432. 
+# Esta porta é a mais estável para o Streamlit Cloud.
+DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)

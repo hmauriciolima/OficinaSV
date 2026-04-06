@@ -7,22 +7,22 @@ import urllib.parse
 
 # --- CONFIGURAÇÕES DE CONEXÃO ---
 
-# 1. Senha do Banco (VerginiaAgro2026)
+# 1. Sua senha do banco (VerginiaAgro2026)
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. Usuário Completo (Obrigatório para o Pooler te encontrar)
-USUARIO = "postgres.yvakbrkllvavtnzywkor"
+# 2. Seu ID de projeto (yvakbrkllvavtnzywkor)
+PROJECT_ID = "yvakbrkllvavtnzywkor"
 
-# 3. Senha do Site
+# 3. Senha de acesso ao site
 SENHA_ACESSO = "sv2026"
 
-# --- MONTAGEM DA CONEXÃO (POOLER NA PORTA 5432) ---
-# O urllib garante que caracteres especiais na senha não quebrem o link
+# --- MONTAGEM DA CONEXÃO (PORTA 6543 - MODO TRANSACTION) ---
+# O segredo: Usuário deve ser exatamente postgres.[ID_DO_PROJETO]
+USUARIO = f"postgres.{PROJECT_ID}"
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
 
-# Usamos o endereço do POOLER na porta 5432. 
-# Esta porta é a mais estável para o Streamlit Cloud.
-DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
+# Usamos a porta 6543, que é a porta do Pooler que resolve o erro de "Tenant not found"
+DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:6543/postgres?sslmode=require"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)
@@ -88,7 +88,7 @@ with aba1:
 
         servico = st.text_area("Descrição")
         
-        if st.form_submit_button("✅ SALVAR NO SISTEMA"):
+        if st.form_submit_button("✅ SALVAR"):
             try:
                 conn = conectar_banco()
                 cur = conn.cursor()

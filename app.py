@@ -5,21 +5,23 @@ from sqlalchemy import create_engine, text
 import os
 import urllib.parse
 
-# --- CONFIGURAÇÕES DE CONEXÃO (AJUSTE DIRETO) ---
+# --- CONFIGURAÇÕES DE CONEXÃO ---
 
-# 1. Senha que você definiu (VerginiaAgro2026)
+# 1. Sua senha confirmada
 SENHA_BANCO = "VerginiaAgro2026"
 
-# 2. Usuário (Apenas 'postgres' - o endereço direto já sabe quem você é)
-USUARIO = "postgres"
+# 2. O USUÁRIO COM O PONTO (O segredo está aqui)
+USUARIO = "postgres.yvakbrkllvavtnzywkor"
 
 # 3. Senha do Site
 SENHA_ACESSO = "sv2026"
 
-# 4. ENDEREÇO DIRETO (db.yvakbrkllvavtnzywkor.supabase.co)
-# Note que mudamos de 'pooler' para o endereço que aparece no topo do seu print
+# --- MONTAGEM DA CONEXÃO VIA POOLER (PORTA 5432) ---
+# Usamos o quote_plus para garantir que o ponto e a senha não quebrem o link
 senha_safe = urllib.parse.quote_plus(SENHA_BANCO)
-DB_URL = f"postgresql://{USUARIO}:{senha_safe}@db.yvakbrkllvavtnzywkor.supabase.co:5432/postgres"
+
+# Endereço do Pooler na porta 5432 - O mais estável para Streamlit
+DB_URL = f"postgresql://{USUARIO}:{senha_safe}@aws-0-sa-east-1.pooler.supabase.com:5432/postgres?sslmode=require"
 
 def criar_engine_sql():
     return create_engine(DB_URL, pool_pre_ping=True)
@@ -45,7 +47,7 @@ if not st.session_state["autenticado"]:
             st.error("Senha incorreta!")
     st.stop()
 
-# --- BARRA LATERAL ---
+# --- LOGOTIPO ---
 diretorio_atual = os.path.dirname(os.path.abspath(__file__))
 caminho_logo = os.path.join(diretorio_atual, 'logo.png.png')
 if os.path.exists(caminho_logo):
